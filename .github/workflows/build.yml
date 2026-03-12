@@ -365,10 +365,16 @@ jobs:
                   contentResolver.registerContentObserver(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), true, screenshotObserver!!)
               }
               
-      - name: Build Debug APK
+      - name: Regenerate Gradle wrapper
         run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.6-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp/
+          /tmp/gradle-8.6/bin/gradle wrapper --gradle-version=8.6 --distribution-type=bin
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          echo "Gradle wrapper ready"
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
