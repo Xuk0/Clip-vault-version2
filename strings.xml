@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ClipVault</string>
+    <string name="channel_name">ClipVault Service</string>
+    <string name="notif_title">ClipVault is monitoring your clipboard</string>
+    <string name="notif_text">Tap to open • Auto-saving copies &amp; screenshots</string>
+    <string name="copy_success">Copied to clipboard!</string>
+    <string name="deleted">Removed from history</string>
+    <string name="empty_title">Nothing here yet</string>
+    <string name="empty_sub">Copy any text or link and ClipVault will automatically save it</string>
+</resources>
