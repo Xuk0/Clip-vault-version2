@@ -109,6 +109,15 @@ jobs:
       - name: Write proguard-rules.pro
         run: touch app/proguard-rules.pro
 
+      - name: Write gradle.properties
+        run: |
+          cat > gradle.properties << 'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.daemon=false
+          EOF
+
       - name: Write AndroidManifest.xml
         run: |
           cat > app/src/main/AndroidManifest.xml << 'EOF'
