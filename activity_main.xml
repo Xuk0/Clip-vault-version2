@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_primary"
+    tools:context=".MainActivity">
+
+    <!-- AppBar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_surface"
+        app:elevation="0dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:paddingHorizontal="4dp">
+
+            <!-- Logo row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Clip"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:fontFamily="monospace"/>
+
+                <TextView
+                    android:id="@+id/tvCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0 items"
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:background="@drawable/badge_bg"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="4dp"
+                    android:layout_marginEnd="8dp"/>
+
+            </LinearLayout>
+        </com.google.android.material.appbar.MaterialToolbar>
+
+        <!-- Search bar -->
+        <androidx.appcompat.widget.SearchView
+            android:id="@+id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="8dp"
+            app:queryHint="Search clipboard history…"
+            app:iconifiedByDefault="false"
+            app:searchIcon="@android:drawable/ic_menu_search"
+            style="@style/SearchViewStyle"/>
+
+        <!-- Filter chips -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:paddingHorizontal="12dp"
+            android:paddingBottom="10dp">
+
+            <com.google.android.material.chip.ChipGroup
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipAll"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="All"
+                    style="@style/FilterChip"/>
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Text"
+                    style="@style/FilterChip"/>
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipUrl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Links"
+                    style="@style/FilterChip"/>
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Numbers"
+                    style="@style/FilterChip"/>
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipImage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Images"
+                    style="@style/FilterChip"/>
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipScreenshot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Screenshots"
+                    style="@style/FilterChip"/>
+
+            </com.google.android.material.chip.ChipGroup>
+        </HorizontalScrollView>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Main content -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"
+        android:paddingBottom="80dp"
+        android:paddingHorizontal="12dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+    <!-- Empty state -->
+    <LinearLayout
+        android:id="@+id/emptyState"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="40dp"
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📋"
+            android:textSize="64sp"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nothing copied yet"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Copy any text, link, or number on your phone — ClipVault automatically saves it in the background."
+            android:textColor="@color/text_muted"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.5"/>
+
+    </LinearLayout>
+
+    <!-- FAB -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabService"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="20dp"
+        android:text="Show Bubble"
+        app:icon="@android:drawable/ic_menu_share"
+        app:backgroundTint="@color/accent"
+        android:textColor="#000000"/>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="5dp"
+    app:cardBackgroundColor="@color/bg_card"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/border"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <!-- Header row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="10dp">
+
+            <!-- Type badge -->
+            <TextView
+                android:id="@+id/tvTypeBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TEXT"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:fontFamily="monospace"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:background="@drawable/badge_type_bg"/>
+
+            <!-- Time -->
+            <TextView
+                android:id="@+id/tvTime"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Just now"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:fontFamily="monospace"
+                android:layout_marginStart="10dp"/>
+
+            <!-- Full date/time -->
+            <TextView
+                android:id="@+id/tvFullTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="@color/text_muted"
+                android:textSize="10sp"
+                android:layout_marginEnd="8dp"/>
+
+        </LinearLayout>
+
+        <!-- Content text -->
+        <TextView
+            android:id="@+id/tvContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:lineSpacingMultiplier="1.5"
+            android:maxLines="5"
+            android:ellipsize="end"
+            android:layout_marginBottom="6dp"/>
+
+        <!-- Image preview -->
+        <ImageView
+            android:id="@+id/ivImage"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:scaleType="centerCrop"
+            android:background="@color/bg_surface"
+            android:visibility="gone"
+            android:layout_marginBottom="6dp"/>
+
+        <!-- Char count -->
+        <TextView
+            android:id="@+id/tvCharCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="@color/text_muted"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="10dp"
+            android:visibility="gone"/>
+
+        <!-- Action buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end"
+            android:layout_marginTop="4dp">
+
+            <!-- Copy button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCopy"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Copy"
+                android:textSize="12sp"
+                android:textColor="@color/accent"
+                app:icon="@android:drawable/ic_menu_edit"
+                app:iconTint="@color/accent"
+                app:iconSize="14dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeColor="@color/accent"
+                android:layout_marginEnd="8dp"/>
+
+            <!-- Share button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnShare"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Share"
+                android:textSize="12sp"
+                android:textColor="@color/accent2"
+                app:icon="@android:drawable/ic_menu_share"
+                app:iconTint="@color/accent2"
+                app:iconSize="14dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeColor="@color/accent2"
+                android:layout_marginEnd="8dp"/>
+
+            <!-- Delete button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDelete"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                app:icon="@android:drawable/ic_menu_delete"
+                app:iconTint="@color/error"
+                app:iconSize="16dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeColor="@color/border"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingHorizontal="0dp"/>
+
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
