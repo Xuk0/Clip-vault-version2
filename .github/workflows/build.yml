@@ -364,8 +364,11 @@ jobs:
                   }
                   contentResolver.registerContentObserver(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), true, screenshotObserver!!)
               }
+              
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
