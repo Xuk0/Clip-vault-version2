@@ -364,7 +364,233 @@ jobs:
                   }
                   contentResolver.registerContentObserver(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), true, screenshotObserver!!)
               }
-              
+      - name: Write MainActivity.kt
+        run: |
+          cat > app/src/main/java/com/clipvault/app/MainActivity.kt << 'KOTLIN'
+          package com.clipvault.app
+          import android.Manifest
+          import android.content.*
+          import android.content.pm.PackageManager
+          import android.net.Uri
+          import android.os.*
+          import android.provider.Settings
+          import android.view.Menu
+          import android.view.MenuItem
+          import android.view.View
+          import android.widget.Toast
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.appcompat.app.AppCompatActivity
+          import androidx.core.content.ContextCompat
+          import androidx.recyclerview.widget.LinearLayoutManager
+          import com.clipvault.app.databinding.ActivityMainBinding
+          import com.google.android.material.chip.Chip
+          import com.google.android.material.dialog.MaterialAlertDialogBuilder
+          class MainActivity : AppCompatActivity() {
+              private lateinit var b: ActivityMainBinding
+              private lateinit var adapter: ClipAdapter
+              private var currentFilter: ClipType? = null
+              private val overlayLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { ClipVaultService.start(this) }
+              private val permLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+              private val dataReceiver = object : BroadcastReceiver() { override fun onReceive(ctx: Context?, intent: Intent?) { runOnUiThread { loadData() } } }
+              companion object { const val ACTION_DATA_CHANGED = "com.clipvault.DATA_CHANGED" }
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState); b = ActivityMainBinding.inflate(layoutInflater); setContentView(b.root); setSupportActionBar(b.toolbar); supportActionBar?.title = ""
+                  setupRecyclerView(); setupFilterChips(); setupSearch(); setupFab(); requestPermissions(); loadData()
+              }
+              override fun onResume() { super.onResume(); registerReceiver(dataReceiver, IntentFilter(ACTION_DATA_CHANGED), RECEIVER_NOT_EXPORTED); loadData() }
+              override fun onPause() { super.onPause(); try { unregisterReceiver(dataReceiver) } catch (_: Exception) {} }
+              private fun setupRecyclerView() {
+                  adapter = ClipAdapter(onCopy = { copyToClipboard(it) }, onShare = { shareEntry(it) }, onDelete = { ClipStorage.delete(this, it.id); loadData() })
+                  b.recyclerView.layoutManager = LinearLayoutManager(this); b.recyclerView.adapter = adapter
+              }
+              private fun setupFilterChips() {
+                  b.chipAll.isChecked = true
+                  val l = View.OnClickListener { v -> currentFilter = when((v as Chip).id) { b.chipText.id->ClipType.TEXT; b.chipUrl.id->ClipType.URL; b.chipNumber.id->ClipType.NUMBER; b.chipImage.id->ClipType.IMAGE; b.chipScreenshot.id->ClipType.SCREENSHOT; else->null }; loadData() }
+                  listOf(b.chipAll, b.chipText, b.chipUrl, b.chipNumber, b.chipImage, b.chipScreenshot).forEach { it.setOnClickListener(l) }
+              }
+              private fun setupSearch() { b.searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener { override fun onQueryTextSubmit(q: String?) = true.also { filterData(q) }; override fun onQueryTextChange(q: String?) = true.also { filterData(q) } }) }
+              private fun setupFab() { b.fabService.setOnClickListener { if (!Settings.canDrawOverlays(this)) showOverlayDialog() else { ClipVaultService.start(this) } } }
+              private fun loadData() { val all = ClipStorage.load(this); val filtered = if (currentFilter == null) all else all.filter { it.type == currentFilter }; adapter.submitList(filtered.toMutableList()); b.emptyState.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE; b.recyclerView.visibility = if (filtered.isEmpty()) View.GONE else View.VISIBLE; b.tvCount.text = "${all.size} items" }
+              private fun filterData(query: String?) { val q = query?.trim()?.lowercase() ?: ""; val all = ClipStorage.load(this); val res = all.filter { e -> (currentFilter == null || e.type == currentFilter) && (q.isEmpty() || e.content.lowercase().contains(q)) }; adapter.submitList(res.toMutableList()); b.emptyState.visibility = if (res.isEmpty()) View.VISIBLE else View.GONE; b.recyclerView.visibility = if (res.isEmpty()) View.GONE else View.VISIBLE }
+              private fun copyToClipboard(entry: ClipEntry) { val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager; cm.setPrimaryClip(android.content.ClipData.newPlainText("ClipVault", entry.content)); Toast.makeText(this, "Copied!", Toast.LENGTH_SHORT).show() }
+              private fun shareEntry(entry: ClipEntry) { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, entry.content) }, "Share via")) }
+              private fun requestPermissions() {
+                  val needed = mutableListOf<String>()
+                  if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) needed += Manifest.permission.POST_NOTIFICATIONS
+                  if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) needed += Manifest.permission.READ_MEDIA_IMAGES
+                  if (needed.isNotEmpty()) permLauncher.launch(needed.toTypedArray())
+                  if (!Settings.canDrawOverlays(this)) showOverlayDialog() else ClipVaultService.start(this)
+              }
+              private fun showOverlayDialog() { MaterialAlertDialogBuilder(this).setTitle("Allow Display Over Other Apps").setMessage("ClipVault needs this to show the floating bubble.").setPositiveButton("Open Settings") { _, _ -> overlayLauncher.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }.setNegativeButton("Skip") { _, _ -> ClipVaultService.start(this) }.show() }
+              override fun onCreateOptionsMenu(menu: Menu): Boolean { menuInflater.inflate(R.menu.main_menu, menu); return true }
+              override fun onOptionsItemSelected(item: MenuItem): Boolean = when(item.itemId) { R.id.action_clear -> { MaterialAlertDialogBuilder(this).setTitle("Clear All").setPositiveButton("Delete All") { _, _ -> ClipStorage.clear(this); loadData() }.setNegativeButton("Cancel", null).show(); true }; R.id.action_toggle_service -> { ClipVaultService.start(this); true }; else -> super.onOptionsItemSelected(item) }
+          }
+          KOTLIN
+
+      - name: Write resource files
+        run: |
+          cat > app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="bg_primary">#0D1117</color>
+              <color name="bg_surface">#161B22</color>
+              <color name="bg_card">#1C2333</color>
+              <color name="border">#30363D</color>
+              <color name="text_primary">#E6EDF3</color>
+              <color name="text_secondary">#C9D1D9</color>
+              <color name="text_muted">#8B949E</color>
+              <color name="accent">#00E5FF</color>
+              <color name="accent2">#BF5AF2</color>
+              <color name="green">#3FB950</color>
+              <color name="orange">#F0883E</color>
+              <color name="error">#F85149</color>
+              <color name="black">#FF000000</color>
+              <color name="white">#FFFFFFFF</color>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">ClipVault</string>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/themes.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.ClipVault" parent="Theme.Material3.Dark">
+                  <item name="colorPrimary">@color/accent</item>
+                  <item name="colorOnPrimary">#000000</item>
+                  <item name="colorSurface">@color/bg_surface</item>
+                  <item name="colorOnSurface">@color/text_primary</item>
+                  <item name="android:colorBackground">@color/bg_primary</item>
+                  <item name="colorError">@color/error</item>
+                  <item name="android:statusBarColor">@color/bg_surface</item>
+                  <item name="android:navigationBarColor">@color/bg_primary</item>
+                  <item name="windowActionBar">false</item>
+                  <item name="windowNoTitle">true</item>
+              </style>
+              <style name="FilterChip" parent="Widget.Material3.Chip.Filter">
+                  <item name="android:textColor">@color/text_muted</item>
+                  <item name="chipBackgroundColor">@color/bg_surface</item>
+                  <item name="chipStrokeColor">@color/border</item>
+                  <item name="chipStrokeWidth">1dp</item>
+                  <item name="checkedIconVisible">false</item>
+              </style>
+              <style name="SearchViewStyle" parent="Widget.AppCompat.SearchView">
+                  <item name="queryBackground">@null</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/menu/main_menu.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+              <item android:id="@+id/action_toggle_service" android:title="Floating Bubble" app:showAsAction="never"/>
+              <item android:id="@+id/action_clear" android:title="Clear All History" app:showAsAction="never"/>
+          </menu>
+          EOF
+
+      - name: Write drawable files
+        run: |
+          cat > app/src/main/res/drawable/bubble_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+              <gradient android:type="linear" android:startColor="#00E5FF" android:endColor="#BF5AF2" android:angle="135"/>
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/panel_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#1C2333"/><corners android:radius="20dp"/><stroke android:width="1dp" android:color="#30363D"/>
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/badge_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#1C2333"/><corners android:radius="20dp"/>
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/badge_type_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#1C7ED6"/><corners android:radius="4dp"/>
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/item_float_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#1C2333"/><corners android:radius="10dp"/><stroke android:width="1dp" android:color="#30363D"/>
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/bubble_shadow.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+              <solid android:color="#000000"/>
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/search_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#161B22"/><corners android:radius="10dp"/><stroke android:width="1dp" android:color="#30363D"/>
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#00E5FF" android:pathData="M54,20 A34,34 0 0 1 88,54 A34,34 0 0 1 54,88 A34,34 0 0 1 20,54 A34,34 0 0 1 54,20 Z"/>
+          </vector>
+          EOF
+          for dir in app/src/main/res/mipmap-hdpi app/src/main/res/mipmap-xhdpi app/src/main/res/mipmap-xxhdpi app/src/main/res/mipmap-xxxhdpi; do
+            cat > $dir/ic_launcher.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/bg_primary"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+            cp $dir/ic_launcher.xml $dir/ic_launcher_round.xml
+          done
+
+      - name: Write layout files
+        run: |
+          cat > app/src/main/res/layout/activity_main.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/bg_primary">
+              <com.google.android.material.appbar.AppBarLayout android:id="@+id/appBarLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@color/bg_surface" app:elevation="0dp">
+                  <com.google.android.material.appbar.MaterialToolbar android:id="@+id/toolbar" android:layout_width="match_parent" android:layout_height="?attr/actionBarSize" android:paddingHorizontal="4dp">
+                      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                          <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="ClipVault" android:textColor="@color/text_primary" android:textSize="20sp" android:textStyle="bold" android:fontFamily="monospace"/>
+                          <TextView android:id="@+id/tvCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 items" android:textColor="@color/text_muted" android:textSize="12sp" android:background="@drawable/badge_bg" android:paddingHorizontal="12dp" android:paddingVertical="4dp" android:layout_marginEnd="8dp"/>
+                      </LinearLayout>
+                  </com.google.android.material.appbar.MaterialToolbar>
+                  <androidx.appcompat.widget.SearchView android:id="@+id/searchView" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginHorizontal="12dp" android:layout_marginBottom="8dp" app:queryHint="Search clipboard history…" app:iconifiedByDefault="false" style="@style/SearchViewStyle"/>
+                  <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:paddingHorizontal="12dp" android:paddingBottom="10dp">
+                      <com.google.android.material.chip.ChipGroup android:layout_width="wrap_content" android:layout_height="wrap_content" app:singleSelection="true" app:selectionRequired="true">
+                          <com.google.android.material.chip.Chip android:id="@+id/chipAll" android:layout_width="wrap_content" android:layout_height="36dp" android:text="All" style="@style/FilterChip"/>
+                          <com.google.android.material.chip.Chip android:id="@+id/chipText" android:layout_width="wrap_content" android:layout_height="36dp" android:text="Text" style="@style/FilterChip"/>
+                          <com.google.android.material.chip.Chip android:id="@+id/chipUrl" android:layout_width="wrap_content" android:layout_height="36dp" android:text="Links" style="@style/FilterChip"/>
+                          <com.google.android.material.chip.Chip android:id="@+id/chipNumber" android:layout_width="wrap_content" android:layout_height="36dp" android:text="Numbers" style="@style/FilterChip"/>
+                          <com.google.android.material.chip.Chip android:id="@+id/chipImage" android:layout_width="wrap_content" android:layout_height="36dp" android:text="Images" style="@style/FilterChip"/>
+                          <com.google.android.material.chip.Chip android:id="@+id/chipScreenshot" android:layout_width="wrap_content" android:layout_height="36dp" android:text="Screenshots" style="@style/FilterChip"/>
+                      </com.google.android.material.chip.ChipGroup>
+                  </HorizontalScrollView>
+              </com.google.android.material.appbar.AppBarLayout>
+              <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerView" android:layout_width="match_parent" android:layout_height="match_parent" android:clipToPadding="false" android:paddingTop="8dp" android:paddingBottom="80dp" android:paddingHorizontal="12dp" app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+              <LinearLayout android:id="@+id/emptyState" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:padding="40dp" android:visibility="gone" app:layout_behavior="@string/appbar_scrolling_view_behavior">
+                  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Nothing copied yet" android:textColor="@color/text_primary" android:textSize="20sp" android:textStyle="bold" android:layout_marginBottom="8dp"/>
+                  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Copy any text — ClipVault saves it automatically" android:textColor="@color/text_muted" android:textSize="14sp" android:gravity="center"/>
+              </LinearLayout>
+              <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton android:id="@+id/fabService" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="bottom|end" android:layout_margin="20dp" android:text="Show Bubble" app:icon="@android:drawable/ic_menu_share" app:backgroundTint="@color/accent" android:textColor="#000000"/>
+          </androidx.coordinatorlayout.widget.CoordinatorLayout>
+          EOF
+
+          cat > app/src/main/res/layout/floating_bubble.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="56dp" android:layout_height="56dp">
+              <LinearLayout android:layout_width="52dp" android:layout_height="52dp" android:layout_gravity="center" android:gravity="center" android:background="@drawable/bubble_bg" android:elevation="8dp">
+                  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="C" android:textColor="#000000" android:textSize="22sp"         
       - name: Regenerate Gradle wrapper
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.6-bin.zip -O /tmp/gradle.zip
