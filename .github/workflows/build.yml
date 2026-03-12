@@ -18,17 +18,30 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK Platform
+      - name: Install Android SDK Platform 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Recreate settings.gradle
+      - name: Create full project structure
         run: |
-          cat > settings.gradle << 'SETTINGS'
+          mkdir -p app/src/main/java/com/clipvault/app
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/mipmap-hdpi
+          mkdir -p app/src/main/res/mipmap-xhdpi
+          mkdir -p app/src/main/res/mipmap-xxhdpi
+          mkdir -p app/src/main/res/mipmap-xxxhdpi
+          mkdir -p gradle/wrapper
+          echo "Folders created"
+
+      - name: Write settings.gradle
+        run: |
+          cat > settings.gradle << 'EOF'
           pluginManagement {
               repositories {
                   google()
@@ -45,24 +58,20 @@ jobs:
           }
           rootProject.name = "ClipVault"
           include ':app'
-          SETTINGS
-          echo "=== settings.gradle ==="
-          cat settings.gradle
+          EOF
 
-      - name: Recreate root build.gradle
+      - name: Write root build.gradle
         run: |
-          cat > build.gradle << 'BUILDGRADLE'
+          cat > build.gradle << 'EOF'
           plugins {
               id 'com.android.application' version '8.3.2' apply false
               id 'org.jetbrains.kotlin.android' version '1.9.23' apply false
           }
-          BUILDGRADLE
-          echo "=== build.gradle ==="
-          cat build.gradle
+          EOF
 
-      - name: Recreate app build.gradle
+      - name: Write app/build.gradle
         run: |
-          cat > app/build.gradle << 'APPGRADLE'
+          cat > app/build.gradle << 'EOF'
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
@@ -76,16 +85,9 @@ jobs:
                   targetSdk 35
                   versionCode 2
                   versionName "2.0"
-                  vectorDrawables.useSupportLibrary = true
               }
               buildTypes {
                   debug { debuggable true }
-                  release {
-                      minifyEnabled true
-                      shrinkResources true
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                      signingConfig signingConfigs.debug
-                  }
               }
               buildFeatures { viewBinding true }
               compileOptions {
@@ -93,48 +95,273 @@ jobs:
                   targetCompatibility JavaVersion.VERSION_17
               }
               kotlinOptions { jvmTarget = '17' }
-              packaging {
-                  resources { excludes += '/META-INF/{AL2.0,LGPL2.1}' }
-              }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.13.1'
               implementation 'androidx.appcompat:appcompat:1.7.0'
               implementation 'com.google.android.material:material:1.12.0'
-              implementation 'androidx.constraintlayout:constraintlayout:2.2.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'com.google.code.gson:gson:2.11.0'
               implementation 'androidx.lifecycle:lifecycle-service:2.8.7'
           }
-          APPGRADLE
-          echo "=== app/build.gradle ==="
-          cat app/build.gradle
+          EOF
 
-      - name: Regenerate Gradle wrapper
+      - name: Write proguard-rules.pro
+        run: touch app/proguard-rules.pro
+
+      - name: Write AndroidManifest.xml
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.6-bin.zip -O /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /tmp/
-          /tmp/gradle-8.6/bin/gradle wrapper --gradle-version=8.6 --distribution-type=bin
-          chmod +x gradlew
-          echo "=== gradlew ready ==="
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.VIBRATE" />
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.ClipVault">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <service
+                      android:name=".ClipVaultService"
+                      android:exported="false"
+                      android:foregroundServiceType="specialUse">
+                      <property
+                          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                          android:value="clipboard_monitor" />
+                  </service>
+                  <receiver android:name=".BootReceiver" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.BOOT_COMPLETED" />
+                      </intent-filter>
+                  </receiver>
+              </application>
+          </manifest>
+          EOF
 
-      - name: Show project structure
+      - name: Write ClipEntry.kt
         run: |
-          echo "=== Kotlin files found ==="
-          find . -name "*.kt" | sort
-          echo "=== Layouts found ==="
-          find . -name "*.xml" | grep -v build | sort
+          cat > app/src/main/java/com/clipvault/app/ClipEntry.kt << 'EOF'
+          package com.clipvault.app
+          import android.content.Context
+          import com.google.gson.Gson
+          import com.google.gson.reflect.TypeToken
+          import java.text.SimpleDateFormat
+          import java.util.*
+          enum class ClipType { TEXT, URL, NUMBER, IMAGE, SCREENSHOT }
+          data class ClipEntry(
+              val id: String = UUID.randomUUID().toString(),
+              val type: ClipType,
+              val content: String,
+              val preview: String = "",
+              val timestamp: Long = System.currentTimeMillis()
+          ) {
+              fun formattedTime(): String =
+                  SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(timestamp))
+              fun shortDate(): String {
+                  val diff = System.currentTimeMillis() - timestamp
+                  val mins = diff / 60_000; val hrs = diff / 3_600_000; val days = diff / 86_400_000
+                  return when {
+                      mins < 1 -> "Just now"; mins < 60 -> "${mins}m ago"
+                      hrs < 24 -> "${hrs}h ago"; days == 1L -> "Yesterday"
+                      else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
+                  }
+              }
+          }
+          fun detectType(text: String): ClipType {
+              val t = text.trim()
+              if (t.startsWith("http://") || t.startsWith("https://")) return ClipType.URL
+              if (t.matches(Regex("^[\\d\\s\\-+().]+$")) && t.length < 30) return ClipType.NUMBER
+              return ClipType.TEXT
+          }
+          object ClipStorage {
+              private const val PREFS = "clipvault_prefs"; private const val KEY = "clip_history"
+              private const val MAX = 300; private val gson = Gson()
+              fun load(ctx: Context): MutableList<ClipEntry> {
+                  val json = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null) ?: return mutableListOf()
+                  return try { val type = object : TypeToken<MutableList<ClipEntry>>() {}.type; gson.fromJson(json, type) ?: mutableListOf() } catch (_: Exception) { mutableListOf() }
+              }
+              fun addEntry(ctx: Context, entry: ClipEntry): Boolean {
+                  val list = load(ctx)
+                  if (list.take(10).any { it.content == entry.content && it.type == entry.type }) return false
+                  list.add(0, entry); save(ctx, list); return true
+              }
+              fun delete(ctx: Context, id: String): MutableList<ClipEntry> { val list = load(ctx).filter { it.id != id }.toMutableList(); save(ctx, list); return list }
+              fun clear(ctx: Context) { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply() }
+              private fun save(ctx: Context, list: MutableList<ClipEntry>) {
+                  val trimmed = if (list.size > MAX) list.take(MAX).toMutableList() else list
+                  ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, gson.toJson(trimmed)).apply()
+              }
+          }
+          EOF
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Write BootReceiver.kt
+        run: |
+          cat > app/src/main/java/com/clipvault/app/BootReceiver.kt << 'EOF'
+          package com.clipvault.app
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import androidx.core.content.ContextCompat
+          class BootReceiver : BroadcastReceiver() {
+              override fun onReceive(ctx: Context, intent: Intent) {
+                  if (intent.action == Intent.ACTION_BOOT_COMPLETED)
+                      ContextCompat.startForegroundService(ctx, Intent(ctx, ClipVaultService::class.java))
+              }
+          }
+          EOF
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ClipVault-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+      - name: Write ClipAdapter.kt
+        run: |
+          cat > app/src/main/java/com/clipvault/app/ClipAdapter.kt << 'EOF'
+          package com.clipvault.app
+          import android.content.ClipData
+          import android.content.ClipboardManager
+          import android.content.Context
+          import android.content.Intent
+          import android.graphics.BitmapFactory
+          import android.view.LayoutInflater
+          import android.view.View
+          import android.view.ViewGroup
+          import android.widget.Toast
+          import androidx.recyclerview.widget.DiffUtil
+          import androidx.recyclerview.widget.ListAdapter
+          import androidx.recyclerview.widget.RecyclerView
+          import com.clipvault.app.databinding.ItemClipBinding
+          import com.clipvault.app.databinding.ItemClipFloatBinding
+          import java.io.File
+          class ClipAdapter(
+              private val onCopy: (ClipEntry) -> Unit,
+              private val onShare: (ClipEntry) -> Unit,
+              private val onDelete: (ClipEntry) -> Unit
+          ) : ListAdapter<ClipEntry, ClipAdapter.VH>(DIFF) {
+              companion object { val DIFF = object : DiffUtil.ItemCallback<ClipEntry>() {
+                  override fun areItemsTheSame(a: ClipEntry, b: ClipEntry) = a.id == b.id
+                  override fun areContentsTheSame(a: ClipEntry, b: ClipEntry) = a == b } }
+              inner class VH(val b: ItemClipBinding) : RecyclerView.ViewHolder(b.root)
+              override fun onCreateViewHolder(parent: ViewGroup, vt: Int) = VH(ItemClipBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+              override fun onBindViewHolder(holder: VH, pos: Int) {
+                  val entry = getItem(pos); val b = holder.b
+                  b.tvTypeBadge.text = when(entry.type) { ClipType.TEXT->"TEXT"; ClipType.URL->"LINK"; ClipType.NUMBER->"NUM"; ClipType.IMAGE->"IMG"; ClipType.SCREENSHOT->"SHOT" }
+                  b.tvTypeBadge.setBackgroundColor(when(entry.type) { ClipType.TEXT->0xFF1C7ED6.toInt(); ClipType.URL->0xFF9C36B5.toInt(); ClipType.NUMBER->0xFFE67700.toInt(); ClipType.IMAGE->0xFF2F9E44.toInt(); ClipType.SCREENSHOT->0xFF1098AD.toInt() })
+                  b.tvTime.text = entry.shortDate(); b.tvFullTime.text = entry.formattedTime()
+                  if (entry.type == ClipType.IMAGE || entry.type == ClipType.SCREENSHOT) {
+                      b.tvContent.visibility = View.GONE; b.ivImage.visibility = View.VISIBLE; b.tvCharCount.visibility = View.GONE
+                      val file = File(entry.content); if (file.exists()) b.ivImage.setImageBitmap(BitmapFactory.decodeFile(entry.content)) else b.ivImage.setImageResource(android.R.drawable.ic_menu_gallery)
+                  } else {
+                      b.tvContent.visibility = View.VISIBLE; b.ivImage.visibility = View.GONE
+                      b.tvContent.text = if (entry.content.length > 200) entry.content.take(200) + "…" else entry.content
+                      if (entry.content.length > 60) { b.tvCharCount.visibility = View.VISIBLE; b.tvCharCount.text = "${entry.content.length} chars" } else b.tvCharCount.visibility = View.GONE
+                  }
+                  b.btnCopy.setOnClickListener { onCopy(entry) }; b.btnShare.setOnClickListener { onShare(entry) }; b.btnDelete.setOnClickListener { onDelete(entry) }
+              }
+          }
+          class FloatingClipAdapter(private var items: MutableList<ClipEntry>, private val context: Context) : RecyclerView.Adapter<FloatingClipAdapter.VH>() {
+              inner class VH(val b: ItemClipFloatBinding) : RecyclerView.ViewHolder(b.root)
+              fun updateData(newItems: MutableList<ClipEntry>) { items = newItems; notifyDataSetChanged() }
+              override fun getItemCount() = items.size
+              override fun onCreateViewHolder(parent: ViewGroup, vt: Int) = VH(ItemClipFloatBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+              override fun onBindViewHolder(holder: VH, pos: Int) {
+                  val entry = items[pos]; val b = holder.b
+                  b.tvContent.text = when(entry.type) { ClipType.IMAGE, ClipType.SCREENSHOT -> "Screenshot: ${File(entry.content).name}"; ClipType.URL -> "Link: ${entry.content.take(60)}"; ClipType.NUMBER -> "Number: ${entry.content}"; else -> entry.content.take(80) }
+                  b.tvTime.text = entry.shortDate()
+                  b.btnCopy.setOnClickListener { val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager; cm.setPrimaryClip(ClipData.newPlainText("cv", entry.content)); Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show() }
+                  b.btnShare.setOnClickListener { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT, entry.content); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }, "Share").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+              }
+          }
+          EOF
 
-      - name: Confirm build
-        run: ls -lh app/build/outputs/apk/debug/
-        
+      - name: Write ClipVaultService.kt
+        run: |
+          cat > app/src/main/java/com/clipvault/app/ClipVaultService.kt << 'EOF'
+          package com.clipvault.app
+          import android.animation.ValueAnimator
+          import android.app.*
+          import android.content.*
+          import android.database.ContentObserver
+          import android.graphics.PixelFormat
+          import android.net.Uri
+          import android.os.*
+          import android.provider.MediaStore
+          import android.provider.Settings
+          import android.view.*
+          import android.view.animation.OvershootInterpolator
+          import androidx.core.app.NotificationCompat
+          import androidx.core.content.ContextCompat
+          import androidx.recyclerview.widget.LinearLayoutManager
+          import com.clipvault.app.databinding.FloatingBubbleBinding
+          import com.clipvault.app.databinding.FloatingPanelBinding
+          class ClipVaultService : Service() {
+              private lateinit var wm: WindowManager
+              private var bubbleView: View? = null; private var panelView: View? = null
+              private var bubbleBinding: FloatingBubbleBinding? = null; private var panelBinding: FloatingPanelBinding? = null
+              private var bubbleParams: WindowManager.LayoutParams? = null
+              private lateinit var clipMgr: ClipboardManager
+              private val clipListener = ClipboardManager.OnPrimaryClipChangedListener { onClipChanged() }
+              private var screenshotObserver: ScreenshotObserver? = null
+              private var lastScreenshotPath = ""
+              private val mainHandler = Handler(Looper.getMainLooper())
+              private val refreshReceiver = object : BroadcastReceiver() { override fun onReceive(ctx: Context?, intent: Intent?) { refreshPanelData() } }
+              companion object {
+                  const val CHANNEL_ID = "clipvault_service"; const val NOTIF_ID = 1001; const val ACTION_REFRESH = "com.clipvault.REFRESH"
+                  fun start(ctx: Context) = ContextCompat.startForegroundService(ctx, Intent(ctx, ClipVaultService::class.java))
+                  fun stop(ctx: Context) = ctx.stopService(Intent(ctx, ClipVaultService::class.java))
+              }
+              override fun onCreate() {
+                  super.onCreate(); wm = getSystemService(WINDOW_SERVICE) as WindowManager; clipMgr = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                  createNotificationChannel(); startForeground(NOTIF_ID, buildNotification("Monitoring clipboard"))
+                  clipMgr.addPrimaryClipChangedListener(clipListener); startScreenshotObserver()
+                  registerReceiver(refreshReceiver, IntentFilter(ACTION_REFRESH), RECEIVER_NOT_EXPORTED)
+                  if (Settings.canDrawOverlays(this)) showBubble()
+              }
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
+              override fun onDestroy() {
+                  super.onDestroy(); clipMgr.removePrimaryClipChangedListener(clipListener)
+                  screenshotObserver?.let { contentResolver.unregisterContentObserver(it) }
+                  try { unregisterReceiver(refreshReceiver) } catch (_: Exception) {}
+                  removeBubble(); removePanel(false)
+              }
+              override fun onBind(intent: Intent?) = null
+              private fun onClipChanged() {
+                  mainHandler.postDelayed({
+                      try {
+                          val clip = clipMgr.primaryClip ?: return@postDelayed
+                          if (clip.itemCount == 0) return@postDelayed
+                          val text = clip.getItemAt(0).coerceToText(this).toString().trim()
+                          if (text.isBlank()) return@postDelayed
+                          val entry = ClipEntry(type = detectType(text), content = text)
+                          if (ClipStorage.addEntry(this, entry)) {
+                              updateNotification("Saved: ${text.take(40)}")
+                              pulseBubble()
+                              sendBroadcast(Intent(MainActivity.ACTION_DATA_CHANGED).setPackage(packageName))
+                          }
+                      } catch (_: Exception) {}
+                  }, 200)
+              }
+              private fun startScreenshotObserver() {
+                  screenshotObserver = ScreenshotObserver(mainHandler, this) { path ->
+                      if (path.isNotBlank() && path != lastScreenshotPath) {
+                          lastScreenshotPath = path
+                          val entry = ClipEntry(type = ClipType.SCREENSHOT, content = path, preview = path)
+                          if (ClipStorage.addEntry(this, entry)) { updateNotification("Screenshot saved"); pulseBubble(); sendBroadcast(Intent(MainActivity.ACTION_DATA_CHANGED).setPackage(packageName)) }
+                      }
+                  }
+                  contentResolver.registerContentObserver(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), true, screenshotObserver!!)
+              }
+ 
